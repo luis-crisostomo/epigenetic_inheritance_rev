@@ -1,0 +1,238 @@
+#set directory (NOT RUN)
+#setwd("/2021_Transgenerational effects (Systematic review)/R analysis")
+
+#libraries
+library(tidyverse)
+library(mixOmics)
+library(igraph)
+
+#load data
+metabolites.F0 <- read.table(file = "F0_FC_metabolites.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+lipids.F0 <- read.table(file = "F0_FC_lipids.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+mirnas.F0 <- read.table(file = "F0_FC_miRNA.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+pirnas.F0 <- read.table(file = "F0_FC_piRNA.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+reprnas.F0 <- read.table(file = "F0_FC_repRNA.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+tirnas.F0 <- read.table(file = "F0_FC_tiRNA.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+trfs.F0 <- read.table(file = "F0_FC_tRF.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+
+sample.matrix.F0 <- data.frame(sample = rownames(metabolites.F0), Group = as.factor(c(rep("CTRL",5), rep("HFD", 6), rep("HFDt",5))))
+
+#select the most representative samples (metabolites + lipids)
+pls.F0 <- pls(metabolites.F0, lipids.F0) 
+plotIndiv(pls.F0, group = sample.matrix.F0$Group, 
+          col.per.group = c("dodgerblue","red3","darkgreen"), rep.space = "XY-variate", 
+          centroid = TRUE, ellipse = TRUE, abline = TRUE, size.xlabel = 12, size.ylabel = 12, 
+          xlim = c(-5,5), ylim = c(-5,5), title = 'Generation F0: 2-omics PLS')
+
+#Selected: CTRL1, CTRL2, CTRL4, HFD2, HFD4, HFD5, HFDt2, HFDt3, HFDt4
+select.F0 <- c("F0_CTRL1", "F0_CTRL2", "F0_CTRL4", "F0_HFD2", "F0_HFD4", "F0_HFD5", "F0_HFDt2", "F0_HFDt3", "F0_HFDt4") 
+
+#DIABLO plot (block PLS-DA)
+##discard samples not available in sncRNA data
+met.F0 <- metabolites.F0[(row.names(metabolites.F0) %in% select.F0),]
+lip.F0 <- lipids.F0[(row.names(lipids.F0) %in% select.F0),]
+groups.F0 <- data.frame(Sample = select.F0, Group = as.factor(c(rep("CTRL",3), rep("HFD", 3), rep("HFDt",3))))
+
+##change colnames of sncRNA rows
+rownames(mirnas.F0) <- select.F0
+rownames(pirnas.F0) <- select.F0
+rownames(reprnas.F0) <- select.F0
+rownames(tirnas.F0) <- select.F0
+rownames(trfs.F0) <- select.F0
+
+##compile data
+data.F0 <- list(Metabolites = met.F0, Lipids = lip.F0, miRNA = mirnas.F0,
+            piRNA = pirnas.F0, repRNA = reprnas.F0, tiRNA = tirnas.F0, tRF = trfs.F0)
+Y <- as.factor(groups.F0$Group)
+keepX <- list(Metabolites = c(round(ncol(met.F0)*0.9, digits = 0), round(ncol(met.F0)*0.9, digits = 0)), 
+              Lipids = c(round(ncol(lip.F0)*0.9, digits = 0), round(ncol(lip.F0)*0.9, digits = 0)), 
+              miRNA = c(round(ncol(mirnas.F0)*0.9, digits = 0), round(ncol(mirnas.F0)*0.9, digits = 0)),
+                piRNA = c(round(ncol(pirnas.F0)*0.9, digits = 0), round(ncol(pirnas.F0)*0.9, digits = 0)), 
+              repRNA = c(round(ncol(reprnas.F0)*0.9, digits = 0), round(ncol(reprnas.F0)*0.9, digits = 0)),
+              tiRNA = c(round(ncol(tirnas.F0)*0.9, digits = 0), round(ncol(tirnas.F0)*0.9, digits = 0)),
+              tRF = c(round(ncol(trfs.F0)*0.9, digits = 0), round(ncol(trfs.F0)*0.9, digits = 0)))
+
+splsda.F0 <- block.splsda(X = data.F0, Y = Y, keepX = keepX, ncomp=2, near.zero.var = TRUE)
+
+#Model performance
+# perf.splsda.F0 <- perf(splsda.F0, validation = "Mfold", folds = 3, 
+#                      progressBar = TRUE, nrepeat = 50) # we suggest nrepeat = 50
+# 
+# plot(perf.splsda.F0, col = color.mixo(5:7), sd = TRUE, legend.position = "horizontal")
+
+#DIABLO plots
+##block plot
+tiff("Generation F0 - Ind. Plots.tiff", width=650, height=600, units="px")
+plotIndiv(splsda.F0,  ind.names = FALSE, subtitle = c("Metabolites", "Lipids", "miRNAs", 
+                                                      "piRNAs", "repRNA", "tiRNAs", "tRFs"), 
+          legend=TRUE, centroid = TRUE, abline = TRUE, 
+          pch = c(15, 16, 17), cex = c(3, 3, 3), size.title = rel(1.5), size.subtitle = rel(1.4),
+          size.xlabel = rel(1.2), size.ylabel = rel(1.2), title = "Generation F0", legend.title = "Group")
+
+dev.off()
+
+##diablo plot
+tiff("Generation F0 - DIABLO plot.tiff", width=650, height=600, units="px")
+plotDiablo(splsda.F0, ncomp = 1)
+dev.off()
+
+##plot Loadings
+plotLoadings(splsda.F0, ncomp = 1, contrib = 'max', method = "median")
+
+
+#Generation F1
+#load data
+metabolites.F1 <- read.table(file = "F1_FC_metabolites.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+lipids.F1 <- read.table(file = "F1_FC_lipids.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+mirnas.F1 <- read.table(file = "F1_FC_miRNA.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+pirnas.F1 <- read.table(file = "F1_FC_piRNA.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+reprnas.F1 <- read.table(file = "F1_FC_repRNA.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+tirnas.F1 <- read.table(file = "F1_FC_tiRNA.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+trfs.F1 <- read.table(file = "F1_FC_tRF.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+
+sample.matrix.F1 <- data.frame(sample = rownames(metabolites.F1), Group = as.factor(c(rep("CTRL",6), rep("HFD", 6), rep("HFDt",6))))
+
+#select the most representative samples (metabolites + lipids)
+pls.F1 <- pls(metabolites.F1, lipids.F1) 
+plotIndiv(pls.F1, group = sample.matrix.F1$Group, 
+          col.per.group = c("dodgerblue","red3","darkgreen"), rep.space = "XY-variate", 
+          centroid = TRUE, ellipse = TRUE, abline = TRUE, size.xlabel = 12, size.ylabel = 12, 
+          xlim = c(-8,8), ylim = c(-8,8), title = 'Generation F1: 2-omics PLS')
+
+#Selected: CTRL3, CTRL6, HFD5, HFD6, HFDt1, HFDt2
+select.F1 <- c("F1_CTRL3", "F1_CTRL6", "F1_HFD5", "F1_HFD6", "F1_HFDt1", "F1_HFDt2") 
+
+#DIABLO plot (block PLS-DA)
+##discard samples not available in sncRNA data
+met.F1 <- metabolites.F1[(row.names(metabolites.F1) %in% select.F1),]
+lip.F1 <- lipids.F1[(row.names(lipids.F1) %in% select.F1),]
+groups.F1 <- data.frame(Sample = select.F1, Group = as.factor(c(rep("CTRL", 2), rep("HFD", 2), rep("HFDt", 2))))
+
+##change colnames of sncRNA rows
+rownames(mirnas.F1) <- select.F1
+rownames(pirnas.F1) <- select.F1
+rownames(reprnas.F1) <- select.F1
+rownames(tirnas.F1) <- select.F1
+rownames(trfs.F1) <- select.F1
+
+##compile data
+data.F1 <- list(Metabolites = met.F1, Lipids = lip.F1, miRNA = mirnas.F1,
+                piRNA = pirnas.F1, repRNA = reprnas.F1, tiRNA = tirnas.F1, tRF = trfs.F1)
+Y <- as.factor(groups.F1$Group)
+keepX <- list(Metabolites = c(round(ncol(met.F1)*0.9, digits = 0), round(ncol(met.F1)*0.9, digits = 0)), 
+              Lipids = c(round(ncol(lip.F1)*0.9, digits = 0), round(ncol(lip.F1)*0.9, digits = 0)), 
+              miRNA = c(round(ncol(mirnas.F1)*0.9, digits = 0), round(ncol(mirnas.F1)*0.9, digits = 0)),
+              piRNA = c(round(ncol(pirnas.F1)*0.9, digits = 0), round(ncol(pirnas.F1)*0.9, digits = 0)), 
+              repRNA = c(round(ncol(reprnas.F1)*0.9, digits = 0), round(ncol(reprnas.F1)*0.9, digits = 0)),
+              tiRNA = c(round(ncol(tirnas.F1)*0.9, digits = 0), round(ncol(tirnas.F1)*0.9, digits = 0)),
+              tRF = c(round(ncol(trfs.F1)*0.9, digits = 0), round(ncol(trfs.F1)*0.9, digits = 0)))
+
+splsda.F1 <- block.splsda(X = data.F1, Y = Y, keepX = keepX, ncomp=2, near.zero.var = TRUE)
+
+#Model performance
+# perf.splsda.F1 <- perf(splsda.F1, validation = "Mfold", folds = 2,
+#                      progressBar = TRUE, nrepeat = 50) # we suggest nrepeat = 50
+# 
+# plot(perf.splsda.F1, col = color.mixo(5:7), sd = TRUE, legend.position = "horizontal")
+
+#DIABLO plots
+##block plot
+tiff("Generation F1 - Ind. Plots.tiff", width=650, height=600, units="px")
+plotIndiv(splsda.F1,  ind.names = FALSE, subtitle = c("Metabolites", "Lipids", "miRNAs", 
+                                                      "piRNAs", "repRNA", "tiRNAs", "tRFs"), 
+          legend=TRUE, centroid = TRUE, abline = TRUE, 
+          pch = c(15, 16, 17), cex = c(3, 3, 3), size.title = rel(1.5), size.subtitle = rel(1.4),
+          size.xlabel = rel(1.2), size.ylabel = rel(1.2), title = "Generation F1", legend.title = "Group")
+
+dev.off()
+
+##diablo plot
+tiff("Generation F1 - DIABLO plot.tiff", width=650, height=600, units="px")
+plotDiablo(splsda.F1, ncomp = 1)
+dev.off()
+
+##plot Loadings
+plotLoadings(splsda.F1, ncomp = 1, contrib = 'max', method = "median")
+
+
+#Generation F2
+#load data
+metabolites.F2 <- read.table(file = "F2_FC_metabolites.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+lipids.F2 <- read.table(file = "F2_FC_lipids.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+mirnas.F2 <- read.table(file = "F2_FC_miRNA.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+pirnas.F2 <- read.table(file = "F2_FC_piRNA.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+reprnas.F2 <- read.table(file = "F2_FC_repRNA.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+tirnas.F2 <- read.table(file = "F2_FC_tiRNA.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+trfs.F2 <- read.table(file = "F2_FC_tRF.csv", header = TRUE, sep = ",", row.names = 1, check.names = FALSE)
+
+sample.matrix.F2 <- data.frame(sample = rownames(metabolites.F2), Group = as.factor(c(rep("CTRL",6), rep("HFD", 6), rep("HFDt",6))))
+
+#select the most representative samples (metabolites + lipids)
+pls.F2 <- pls(metabolites.F2, lipids.F2) 
+plotIndiv(pls.F2, group = sample.matrix.F2$Group, 
+          col.per.group = c("dodgerblue","red3","darkgreen"), rep.space = "XY-variate", 
+          centroid = TRUE, ellipse = TRUE, abline = TRUE, size.xlabel = 12, size.ylabel = 12, 
+          xlim = c(-8,8), ylim = c(-8,8), title = 'Generation F2: 2-omics PLS')
+
+#Selected: CTRL5, CTRL2, CTRL6, HFD5, HFD6, HFDt1, HFDt2, HFDt6
+select.F2 <- c("F2_CTRL5", "F2_CTRL2", "F2_CTRL6", "F2_HFD1", "F2_HFD2", "F2_HFD3", "F2_HFDt1", "F2_HFDt2", "F2_HFDt6") 
+
+#DIABLO plot (block PLS-DA)
+##discard samples not available in sncRNA data
+met.F2 <- metabolites.F2[(row.names(metabolites.F2) %in% select.F2),]
+lip.F2 <- lipids.F2[(row.names(lipids.F2) %in% select.F2),]
+groups.F2 <- data.frame(Sample = select.F2, Group = as.factor(c(rep("CTRL", 3), rep("HFD", 3), rep("HFDt", 3))))
+
+##change colnames of sncRNA rows
+rownames(mirnas.F2) <- select.F2
+rownames(pirnas.F2) <- select.F2
+rownames(reprnas.F2) <- select.F2
+rownames(tirnas.F2) <- select.F2
+rownames(trfs.F2) <- select.F2
+
+mirnas.F2 <- mirnas.F2[ order(rownames(mirnas.F2)) , ,drop=F]
+pirnas.F2 <- pirnas.F2[ order(rownames(pirnas.F2)) , ,drop=F]
+reprnas.F2 <- reprnas.F2[ order(rownames(reprnas.F2)) , ,drop=F]
+tirnas.F2 <- tirnas.F2[ order(rownames(tirnas.F2)) , ,drop=F]
+trfs.F2 <- trfs.F2[ order(rownames(trfs.F2)) , ,drop=F]
+
+##compile data
+data.F2 <- list(Metabolites = met.F2, Lipids = lip.F2, miRNA = mirnas.F2,
+                piRNA = pirnas.F2, repRNA = reprnas.F2, tiRNA = tirnas.F2, tRF = trfs.F2)
+Y <- as.factor(groups.F2$Group)
+keepX <- list(Metabolites = c(round(ncol(met.F2)*0.9, digits = 0), round(ncol(met.F2)*0.9, digits = 0)), 
+              Lipids = c(round(ncol(lip.F2)*0.9, digits = 0), round(ncol(lip.F2)*0.9, digits = 0)), 
+              miRNA = c(round(ncol(mirnas.F2)*0.9, digits = 0), round(ncol(mirnas.F2)*0.9, digits = 0)),
+              piRNA = c(round(ncol(pirnas.F2)*0.9, digits = 0), round(ncol(pirnas.F2)*0.9, digits = 0)), 
+              repRNA = c(round(ncol(reprnas.F2)*0.9, digits = 0), round(ncol(reprnas.F2)*0.9, digits = 0)),
+              tiRNA = c(round(ncol(tirnas.F2)*0.9, digits = 0), round(ncol(tirnas.F2)*0.9, digits = 0)),
+              tRF = c(round(ncol(trfs.F2)*0.9, digits = 0), round(ncol(trfs.F2)*0.9, digits = 0)))
+
+splsda.F2 <- block.splsda(X = data.F2, Y = Y, keepX = keepX, ncomp=2, near.zero.var = TRUE)
+
+#Model performance
+# perf.splsda.F2 <- perf(splsda.F2, validation = "Mfold", folds = 3,
+#                      progressBar = TRUE, nrepeat = 50) # we suggest nrepeat = 50
+# 
+# plot(perf.splsda.F2, col = color.mixo(5:7), sd = TRUE, legend.position = "horizontal")
+
+#DIABLO plots
+##block plot
+tiff("Generation F2 - Ind. Plots.tiff", width=650, height=600, units="px")
+plotIndiv(splsda.F2,  ind.names = FALSE, subtitle = c("Metabolites", "Lipids", "miRNAs", 
+                                                      "piRNAs", "repRNA", "tiRNAs", "tRFs"), 
+          legend=TRUE, centroid = TRUE, abline = TRUE, 
+          pch = c(15, 16, 17), cex = c(3, 3, 3), size.title = rel(1.5), size.subtitle = rel(1.4),
+          size.xlabel = rel(1.2), size.ylabel = rel(1.2), title = "Generation F2", legend.title = "Group")
+
+dev.off()
+
+##diablo plot
+tiff("Generation F2 - DIABLO plot.tiff", width=650, height=600, units="px")
+plotDiablo(splsda.F2, ncomp = 1)
+dev.off()
+
+##plot Loadings
+plotLoadings(splsda.F2, ncomp = 1, contrib = 'max', method = "median")
+
+
